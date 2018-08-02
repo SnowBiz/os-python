@@ -30,5 +30,5 @@ oc process -f ./template.yaml | oc create -f -
 
 The template as is expects a project namespace to be already created called "External" you can create this via the oc client tools.
 ```
-oc new-project External
+oc new-project external
 ```
