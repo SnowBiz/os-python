@@ -1,5 +1,4 @@
 # Flask Sample Application
-# ** Openshift Online Free Tier Does NOT allow the Docker Build Strategy **
 
 This repository provides a sample Python web application implemented using the Flask web framework and hosted using ``gunicorn``. It is intended to be used to demonstrate deployment of Python web applications to OpenShift 3 via a custom Dockerfile. 
 

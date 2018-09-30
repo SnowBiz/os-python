@@ -15,6 +15,10 @@ parameters:
   name: APP_NAME
   required: true
   value: 'os-python'
+- description: Docker Hub Repository/Image
+  name: DOCKER_IMAGE
+  required: true
+  value: 'registry.hub.docker.com/snowbiz/os-python:1.0'
 objects:
 - apiVersion: v1
   kind: DeploymentConfig
@@ -45,7 +49,7 @@ objects:
       spec:
         containers:
           - image: >-
-              registry.hub.docker.com/snowbiz/os-python:1.0
+              ${DOCKER_IMAGE}
             imagePullPolicy: Always
             name: os-python
             ports:
@@ -83,10 +87,10 @@ objects:
       local: false
     tags:
       - annotations:
-          openshift.io/imported-from: 'registry.hub.docker.com/snowbiz/os-python:1.0'
+          openshift.io/imported-from: '${DOCKER_IMAGE}'
         from:
           kind: DockerImage
-          name: 'registry.hub.docker.com/snowbiz/os-python:1.0'
+          name: '${DOCKER_IMAGE}'
         generation: 2
         importPolicy: {}
         name: '1.0'
