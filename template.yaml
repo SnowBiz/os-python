@@ -11,69 +11,88 @@ metadata:
     tags: instant-app,os-python
   name: os-python
 parameters:
-- description: Project Namespace
-  name: PROJECT_NAME
+- description: App Name
+  name: APP_NAME
   required: true
-  value: 'external'
-- description: Git source URI for os-python S2I
-  name: SOURCE_REPOSITORY_URL
-  required: true
-  value: https://github.com/SnowBiz/os-python.git
-- description: Git branch/tag reference
-  name: SOURCE_REPOSITORY_REF
-  value: master
-- description: Path within Git project to build; empty for root project directory.
-  name: CONTEXT_DIR
-  value: ''
-- description: Maximum amount of memory the container can use.
-  displayName: Memory Limit
-  name: MEMORY_LIMIT
-  value: 4Gi
-- description: Proxy - fully qualified
-  displayName: Proxy URI
-  name: PROXY_URL
-  value: ''
+  value: 'os-python'
 objects:
 - apiVersion: v1
-  kind: ServiceAccount
+  kind: DeploymentConfig
   metadata:
     labels:
       app: os-python
     name: os-python
-- apiVersion: v1
-  groupNames: []
-  kind: RoleBinding
-  metadata:
-    creationTimestamp: null
-    name: os-python
-    namespace: ${PROJECT_NAME}
-  roleRef:
-    name: admin
-  subjects:
-  - kind: ServiceAccount
-    name: os-python
-  userNames:
-  - system:serviceaccount:${PROJECT_NAME}:os-python
-- apiVersion: v1
-  groupNames: []
-  kind: RoleBinding
-  metadata:
-    creationTimestamp: null
-    name: default
-    namespace: ${PROJECT_NAME}
-  roleRef:
-    name: admin
-  subjects:
-  - kind: ServiceAccount
-    name: default
-  userNames:
-  - system:serviceaccount:${PROJECT_NAME}:default
+  spec:
+    replicas: 1
+    selector:
+      app: os-python
+      deploymentconfig: os-python
+    strategy:
+      activeDeadlineSeconds: 21600
+      resources: {}
+      rollingParams:
+        intervalSeconds: 1
+        maxSurge: 25%
+        maxUnavailable: 25%
+        timeoutSeconds: 600
+        updatePeriodSeconds: 1
+      type: Rolling
+    template:
+      metadata:
+        labels:
+          app: os-python
+          deploymentconfig: os-python
+      spec:
+        containers:
+          - image: >-
+              registry.hub.docker.com/snowbiz/os-python:1.0
+            imagePullPolicy: Always
+            name: os-python
+            ports:
+              - containerPort: 8080
+                protocol: TCP
+            resources: {}
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+    test: false
+    triggers:
+      - type: ConfigChange
+      - imageChangeParams:
+          automatic: true
+          containerNames:
+            - os-python
+          from:
+            kind: ImageStreamTag
+            name: 'os-python:1.0'
+            namespace: python-api
+        type: ImageChange
+
 - apiVersion: v1
   kind: ImageStream
   metadata:
     labels:
       app: os-python
     name: os-python
+  spec:
+    lookupPolicy:
+      local: false
+    tags:
+      - annotations:
+          openshift.io/imported-from: 'registry.hub.docker.com/snowbiz/os-python:1.0'
+        from:
+          kind: DockerImage
+          name: 'registry.hub.docker.com/snowbiz/os-python:1.0'
+        generation: 2
+        importPolicy: {}
+        name: '1.0'
+        referencePolicy:
+          type: Source
+  
 - apiVersion: v1
   kind: Service
   metadata:
@@ -91,23 +110,7 @@ objects:
       deploymentconfig: os-python
     sessionAffinity: None
     type: ClusterIP
-# If you have a paid online account and want to use your own domain uncomment the below route
-#- apiVersion: v1
-#  kind: Route
-#  metadata:
-#    labels:
-#      app: os-python
-#    name: ospythonexternal
-#  spec:
-#    host: ospython.yourDomain.org
-#    port:
-#      targetPort: 8080
-#    tls:
-#      termination: edge
-#    to:
-#      kind: Service
-#      name: os-python
-#    wildcardPolicy: None
+  
 - apiVersion: v1
   kind: Route
   metadata:
@@ -123,119 +126,3 @@ objects:
       kind: Service
       name: os-python
     wildcardPolicy: None
-- apiVersion: v1
-  kind: BuildConfig
-  metadata:
-    labels:
-      app: os-python
-    name: os-python
-  spec:
-    output:
-      to:
-        kind: ImageStreamTag
-        name: os-python:latest
-    resources:
-      limits:
-        memory: ${MEMORY_LIMIT}
-    source:
-      contextDir: ${CONTEXT_DIR}
-      git:
-        uri: ${SOURCE_REPOSITORY_URL}
-        ref: ${SOURCE_REPOSITORY_REF}
-      secrets: []
-      type: Git
-    strategy:
-      dockerStrategy:
-        noCache: true
-        dockerfilePath: Dockerfile
-        env:
-          - name: GIT_SSL_NO_VERIFY
-            value: 'true'
-          - name: HTTP_PROXY
-            value: ${PROXY_URL}
-          - name: HTTPS_PROXY
-            value: ${PROXY_URL}
-          - name: NO_PROXY
-            value: ''
-    triggers:
-    - type: ConfigChange
-    - imageChange: {}
-      type: ImageChange
-  status:
-    lastVersion: 0
-- apiVersion: v1
-  kind: DeploymentConfig
-  metadata:
-    labels:
-      app: os-python
-    name: os-python
-  spec:
-    replicas: 1
-    selector:
-      app: os-python
-      deploymentconfig: os-python
-    strategy:
-      type: Recreate
-    template:
-      metadata:
-        labels:
-          app: os-python
-          deploymentconfig: os-python
-      spec:
-        containers:
-        - env:
-          - name: APP_CONFIG
-            value: 'config.py'
-          - name: PYTHONHTTPSVERIFY
-            value: '0'
-          - name: GIT_SSL_NO_VERIFY
-            value: 'true'
-          - name: http_proxy
-            value: ${PROXY_URL}
-          - name: HTTP_PROXY
-            value: ${PROXY_URL}
-          - name: https_proxy
-            value: ${PROXY_URL}
-          - name: HTTPS_PROXY
-            value: ${PROXY_URL}
-          - name: no_proxy
-            value: ''
-          - name: NO_PROXY
-            value: ''
-          image: >-
-            registry.access.redhat.com/rhscl/python-36-rhel7
-          imagePullPolicy: 
-          livenessProbe:
-            failureThreshold: 30
-            httpGet:
-              path: /health
-              port: 8080
-              scheme: HTTP
-            initialDelaySeconds: 420
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 3
-          name: os-python
-          ports:
-          - containerPort: 8080
-            protocol: TCP
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-        dnsPolicy: ClusterFirst
-        restartPolicy: Always
-        schedulerName: default-scheduler
-        securityContext: {}
-        serviceAccount: os-python
-        serviceAccountName: os-python
-        terminationGracePeriodSeconds: 30
-    test: false
-    triggers:
-    - type: ConfigChange
-    - imageChangeParams:
-        automatic: true
-        containerNames:
-        - os-python
-        from:
-          kind: ImageStreamTag
-          name: os-python:latest
-      type: ImageChange
